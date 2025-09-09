@@ -6,10 +6,11 @@ export type {
   ViewKey,
 } from "./specs/account.nitro";
 
+import { NitroModules } from "react-native-nitro-modules";
 import type { Account, Address, PrivateKey, ViewKey } from "./specs/account.nitro";
 
 export const createAccount = (): Account => {
-  throw new Error("Account must be instantiated through Nitro module system");
+  return NitroModules.createHybridObject<Account>("Account");
 };
 
 export const createPrivateKey = (): PrivateKey => {

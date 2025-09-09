@@ -15,10 +15,7 @@
 #include <fbjni/fbjni.h>
 #include <NitroModules/HybridObjectRegistry.hpp>
 
-#include "HybridPrivateKey.hpp"
-#include "HybridAddress.hpp"
-#include "HybridViewKey.hpp"
-#include "HybridAccountFactory.hpp"
+#include "HybridAccount.hpp"
 
 namespace margelo::nitro::provable {
 
@@ -33,39 +30,12 @@ int initialize(JavaVM* vm) {
 
     // Register Nitro Hybrid Objects
     HybridObjectRegistry::registerHybridObjectConstructor(
-      "PrivateKey",
+      "Account",
       []() -> std::shared_ptr<HybridObject> {
-        static_assert(std::is_default_constructible_v<HybridPrivateKey>,
-                      "The HybridObject \"HybridPrivateKey\" is not default-constructible! "
+        static_assert(std::is_default_constructible_v<HybridAccount>,
+                      "The HybridObject \"HybridAccount\" is not default-constructible! "
                       "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-        return std::make_shared<HybridPrivateKey>();
-      }
-    );
-    HybridObjectRegistry::registerHybridObjectConstructor(
-      "Address",
-      []() -> std::shared_ptr<HybridObject> {
-        static_assert(std::is_default_constructible_v<HybridAddress>,
-                      "The HybridObject \"HybridAddress\" is not default-constructible! "
-                      "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-        return std::make_shared<HybridAddress>();
-      }
-    );
-    HybridObjectRegistry::registerHybridObjectConstructor(
-      "ViewKey",
-      []() -> std::shared_ptr<HybridObject> {
-        static_assert(std::is_default_constructible_v<HybridViewKey>,
-                      "The HybridObject \"HybridViewKey\" is not default-constructible! "
-                      "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-        return std::make_shared<HybridViewKey>();
-      }
-    );
-    HybridObjectRegistry::registerHybridObjectConstructor(
-      "AccountFactory",
-      []() -> std::shared_ptr<HybridObject> {
-        static_assert(std::is_default_constructible_v<HybridAccountFactory>,
-                      "The HybridObject \"HybridAccountFactory\" is not default-constructible! "
-                      "Create a public constructor that takes zero arguments to be able to autolink this HybridObject.");
-        return std::make_shared<HybridAccountFactory>();
+        return std::make_shared<HybridAccount>();
       }
     );
   });

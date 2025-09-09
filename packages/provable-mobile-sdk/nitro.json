@@ -8,10 +8,17 @@
     "androidCxxLibName": "ProvableMobileSdk"
   },
   "autolinking": {
-    "PrivateKey": { "cpp": "HybridPrivateKey" },
-    "Address": { "cpp": "HybridAddress" },
-    "ViewKey": { "cpp": "HybridViewKey" },
-    "AccountFactory": { "cpp": "HybridAccountFactory" }
+    "Account": {
+      "cpp": "HybridAccount"
+    }
   },
-  "ignorePaths": ["node_modules", "lib"]
+  "ignorePaths": [
+    "node_modules", 
+    "lib", 
+    "nitrogen/generated", 
+    "target", 
+    "build", 
+    ".cache", 
+    "dist"
+  ]
 }

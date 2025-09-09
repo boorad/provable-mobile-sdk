@@ -1,10 +1,18 @@
 {
   "name": "provable-mobile-sdk",
-  "module": "index.ts",
+  "version": "0.1.0",
+  "description": "Provable Mobile SDK for React Native - Zero-knowledge cryptography on mobile",
+  "homepage": "https://github.com/ProvableHQ/mobile-sdk",
+  "license": "MIT",
+  "authors": ["Provable Team <team@provable.com>"],
+  "main": "src/ts/index.ts",
+  "types": "dist/index.d.ts",
+  "module": "src/ts/index.ts",
   "type": "module",
   "private": true,
   "scripts": {
-    "specs": "nitro-codegen"
+    "specs": "nitro-codegen",
+    "types": "tsc"
   },
   "dependencies": {
     "react-native-nitro-modules": "^0.29.3"

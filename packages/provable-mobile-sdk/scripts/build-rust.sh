@@ -49,8 +49,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 BUILD_DIR="$SCRIPT_DIR/../build"
-CRATE_DIR="$SCRIPT_DIR/../.."
-CRATES_DIR="$CRATE_DIR/.."
+CRATE_DIR="$SCRIPT_DIR/.."
 
 # Create necessary directories
 mkdir -p $BUILD_DIR/includes/rust
@@ -110,17 +109,24 @@ echo "Building for $PLATFORM target: $RUST_TARGET"
 # Set build flags
 export CXXFLAGS="-std=c++20 -fPIC"
 
-# Set platform-specific linker flags
+# Set platform-specific linker flags and OpenSSL configuration
 if [ "$PLATFORM" != "android" ]; then
-  # iOS: Set SDK path and use framework linking
-  if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then
-    SDK_PATH="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
-  else
-    SDK_PATH="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
-  fi
-  export RUSTFLAGS="-C link-arg=-fPIC -C link-arg=-isysroot -C link-arg=$SDK_PATH"
-else
-  export RUSTFLAGS="-C link-arg=-fPIC"
+  # Generate dynamic cargo config for iOS cross-compilation
+  echo "Setting up iOS cross-compilation configuration..."
+  "$SCRIPT_DIR/setup-cargo-config.sh"
+  
+  # Set iOS-specific environment variables
+  export IPHONEOS_DEPLOYMENT_TARGET=16.0
+  export CC_aarch64_apple_ios=clang
+  export AR_aarch64_apple_ios=ar
+  
+  # OpenSSL and curl vendored static linking
+  export OPENSSL_VENDORED=1
+  export OPENSSL_STATIC=1
+  export CURL_STATIC=1
+  
+  # Additional environment for cross-compilation
+  export PKG_CONFIG_ALLOW_CROSS=1
 fi
 
 # Set up Android NDK environment if building for Android
@@ -172,10 +178,8 @@ fi
 # perform builds from crate root
 pushd $CRATE_DIR
 
-# Generate C++ headers
-echo "Generating C++ headers..."
-cxxbridge --header -o $BUILD_DIR/includes/rust/cxx.h
-cxxbridge src/lib.rs --header -o $BUILD_DIR/includes/rust/lib.rs.h
+# C++ headers will be generated automatically by cxx-build during cargo build
+echo "Building Rust library (C++ headers will be generated automatically)..."
 
 echo "Building Rust library for target: $RUST_TARGET"
 $CARGO build --target "$RUST_TARGET" --release
@@ -186,20 +190,22 @@ echo "Copying library to output directories"
 if [ "$PLATFORM" = "android" ]; then
   # Android: copy .a files to android directory
   mkdir -p "$BUILD_DIR/android"
-  cp "$CRATES_DIR/target/$RUST_TARGET/release/libcojson_core_rn.a" "$BUILD_DIR/android/libcojson_core_rn.a"
+  cp "$CRATE_DIR/target/$RUST_TARGET/release/libprovable_mobile_sdk.a" "$BUILD_DIR/android/libprovable_mobile_sdk.a"
 else
   # iOS: copy .a files to ios directory for vendored_libraries
-  cp "$CRATES_DIR/target/$RUST_TARGET/release/libcojson_core_rn.a" "$BUILD_DIR/ios/"
+  cp "$CRATE_DIR/target/$RUST_TARGET/release/libprovable_mobile_sdk.a" "$BUILD_DIR/ios/"
 fi
 
-# Copy cxx bridge generated headers to includes/rust for Xcode build
-echo "Copying cxx bridge generated headers..."
-CXX_BRIDGE_HEADER=$(find "$CRATES_DIR/target/$RUST_TARGET/release/build" -name "lib.rs.h" -type f | head -1)
-if [ -n "$CXX_BRIDGE_HEADER" ]; then
-    cp "$CXX_BRIDGE_HEADER" "$BUILD_DIR/includes/rust/"
-    echo "Cxx bridge headers copied successfully."
+# Copy cxx-build generated headers to includes/rust for Xcode build
+echo "Copying cxx-build generated headers..."
+CXX_BUILD_HEADERS=$(find "$CRATE_DIR/target/$RUST_TARGET/release/build" -name "*.h" -path "*/cxxbridge*" -type f)
+if [ -n "$CXX_BUILD_HEADERS" ]; then
+    for header in $CXX_BUILD_HEADERS; do
+        cp "$header" "$BUILD_DIR/includes/rust/"
+    done
+    echo "Cxx-build headers copied successfully."
 else
-    echo "Warning: Cxx bridge headers not found"
+    echo "Warning: Cxx-build headers not found"
 fi
 
 popd

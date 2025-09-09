@@ -1,519 +1,341 @@
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
-use std::ptr;
-
-// Re-export the types we need from snarkvm-console
-use rand::{rngs::StdRng, SeedableRng};
-use snarkvm_console::account::{
-    Address as AddressNative, PrivateKey as PrivateKeyNative, Signature as SignatureNative,
-    ViewKey as ViewKeyNative,
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::str::FromStr;
+use snarkvm_console::{
+    account::{Address, PrivateKey, Signature, ViewKey},
+    network::MainnetV0,
+    prelude::{FromBytes, ToBytes},
 };
-use snarkvm_console::prelude::{FromBytes, ToBytes};
 
-// Use the default network type that should be available
-type CurrentNetwork = snarkvm_console::network::Testnet3;
+type CurrentNetwork = MainnetV0;
 
-// Opaque handle types for C++ interop
-pub struct PrivateKeyHandle {
-    inner: PrivateKeyNative<CurrentNetwork>,
-}
+#[cxx::bridge]
+mod ffi {
+    // Shared types between Rust and C++
+    struct PrivateKeyHandle {
+        id: u64,
+    }
 
-pub struct AddressHandle {
-    inner: AddressNative<CurrentNetwork>,
-}
+    struct AddressHandle {
+        id: u64,
+    }
 
-pub struct ViewKeyHandle {
-    inner: ViewKeyNative<CurrentNetwork>,
-}
+    struct ViewKeyHandle {
+        id: u64,
+    }
 
-pub struct SignatureHandle {
-    inner: SignatureNative<CurrentNetwork>,
-}
+    struct SignatureHandle {
+        id: u64,
+    }
 
-// Helper function to convert Rust string to C string
-fn rust_string_to_c_char(s: String) -> *mut c_char {
-    match CString::new(s) {
-        Ok(c_string) => c_string.into_raw(),
-        Err(_) => ptr::null_mut(),
+    struct AccountResult {
+        success: bool,
+        result: String,
+        error: String,
+    }
+
+    struct SignatureResult {
+        success: bool,
+        signature_bytes: Vec<u8>,
+        error: String,
+    }
+
+    // Rust functions exposed to C++
+    extern "Rust" {
+        fn create_private_key() -> PrivateKeyHandle;
+        fn private_key_from_string(private_key_str: String) -> PrivateKeyHandle;
+        fn private_key_to_string(handle: &PrivateKeyHandle) -> AccountResult;
+        fn private_key_to_address(handle: &PrivateKeyHandle) -> AddressHandle;
+        fn private_key_to_view_key(handle: &PrivateKeyHandle) -> ViewKeyHandle;
+        fn private_key_sign(handle: &PrivateKeyHandle, message: Vec<u8>) -> SignatureResult;
+        fn validate_private_key(private_key_str: String) -> bool;
+        fn destroy_private_key(handle: &PrivateKeyHandle);
+
+        fn address_from_string(address_str: String) -> AddressHandle;
+        fn address_to_string(handle: &AddressHandle) -> AccountResult;
+        fn address_verify(handle: &AddressHandle, signature_bytes: Vec<u8>, message: Vec<u8>) -> bool;
+        fn validate_address(address_str: String) -> bool;
+        fn destroy_address(handle: &AddressHandle);
+
+        fn view_key_from_string(view_key_str: String) -> ViewKeyHandle;
+        fn view_key_to_string(handle: &ViewKeyHandle) -> AccountResult;
+        fn view_key_to_address(handle: &ViewKeyHandle) -> AddressHandle;
+        fn validate_view_key(view_key_str: String) -> bool;
+        fn destroy_view_key(handle: &ViewKeyHandle);
+
+        fn destroy_signature(handle: &SignatureHandle);
     }
 }
 
-// Helper function to convert C string to Rust string
-fn c_char_to_rust_string(c_str: *const c_char) -> Result<String, &'static str> {
-    if c_str.is_null() {
-        return Err("Null pointer");
-    }
+// Storage for cryptographic objects using handles
+static PRIVATE_KEYS: OnceLock<Mutex<HashMap<u64, PrivateKey<CurrentNetwork>>>> = OnceLock::new();
+static ADDRESSES: OnceLock<Mutex<HashMap<u64, Address<CurrentNetwork>>>> = OnceLock::new();
+static VIEW_KEYS: OnceLock<Mutex<HashMap<u64, ViewKey<CurrentNetwork>>>> = OnceLock::new();
+static SIGNATURES: OnceLock<Mutex<HashMap<u64, Signature<CurrentNetwork>>>> = OnceLock::new();
+static NEXT_ID: Mutex<u64> = Mutex::new(1);
 
-    unsafe {
-        match CStr::from_ptr(c_str).to_str() {
-            Ok(s) => Ok(s.to_string()),
-            Err(_) => Err("Invalid UTF-8"),
+// Initialize storage
+fn ensure_private_key_storage() -> &'static Mutex<HashMap<u64, PrivateKey<CurrentNetwork>>> {
+    PRIVATE_KEYS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn ensure_address_storage() -> &'static Mutex<HashMap<u64, Address<CurrentNetwork>>> {
+    ADDRESSES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn ensure_view_key_storage() -> &'static Mutex<HashMap<u64, ViewKey<CurrentNetwork>>> {
+    VIEW_KEYS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn ensure_signature_storage() -> &'static Mutex<HashMap<u64, Signature<CurrentNetwork>>> {
+    SIGNATURES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+// Get the next unique ID
+fn get_next_id() -> u64 {
+    let mut id = NEXT_ID.lock().unwrap();
+    let current = *id;
+    *id += 1;
+    current
+}
+
+// Helper functions to create results
+fn error_result(error: String) -> ffi::AccountResult {
+    ffi::AccountResult {
+        success: false,
+        result: String::new(),
+        error,
+    }
+}
+
+fn success_result(result: String) -> ffi::AccountResult {
+    ffi::AccountResult {
+        success: true,
+        result,
+        error: String::new(),
+    }
+}
+
+fn signature_error_result(error: String) -> ffi::SignatureResult {
+    ffi::SignatureResult {
+        success: false,
+        signature_bytes: Vec::new(),
+        error,
+    }
+}
+
+fn signature_success_result(signature_bytes: Vec<u8>) -> ffi::SignatureResult {
+    ffi::SignatureResult {
+        success: true,
+        signature_bytes,
+        error: String::new(),
+    }
+}
+
+// FFI function implementations
+
+// Private key functions
+pub fn create_private_key() -> ffi::PrivateKeyHandle {
+    let private_key = PrivateKey::<CurrentNetwork>::new(&mut rand::thread_rng()).unwrap();
+    let id = get_next_id();
+    
+    let storage = ensure_private_key_storage();
+    let mut map = storage.lock().unwrap();
+    map.insert(id, private_key);
+    
+    ffi::PrivateKeyHandle { id }
+}
+
+pub fn private_key_from_string(private_key_str: String) -> ffi::PrivateKeyHandle {
+    match PrivateKey::<CurrentNetwork>::from_str(&private_key_str) {
+        Ok(private_key) => {
+            let id = get_next_id();
+            let storage = ensure_private_key_storage();
+            let mut keys = storage.lock().unwrap();
+            keys.insert(id, private_key);
+            ffi::PrivateKeyHandle { id }
         }
+        Err(_) => ffi::PrivateKeyHandle { id: 0 }, // Invalid handle
     }
 }
 
-// Free C string allocated by Rust
-#[no_mangle]
-pub extern "C" fn free_c_string(s: *mut c_char) {
-    if !s.is_null() {
-        unsafe {
-            let _ = CString::from_raw(s);
-        }
+pub fn private_key_to_string(handle: &ffi::PrivateKeyHandle) -> ffi::AccountResult {
+    let storage = ensure_private_key_storage();
+    let keys = storage.lock().unwrap();
+    
+    if let Some(key) = keys.get(&handle.id) {
+        success_result(key.to_string())
+    } else {
+        error_result("Invalid private key handle".to_string())
     }
 }
 
-// PrivateKey FFI functions
-#[no_mangle]
-pub extern "C" fn private_key_new() -> *mut PrivateKeyHandle {
-    let mut rng = StdRng::from_entropy();
-    match PrivateKeyNative::new(&mut rng) {
-        Ok(private_key) => Box::into_raw(Box::new(PrivateKeyHandle { inner: private_key })),
-        Err(_) => ptr::null_mut(),
+pub fn private_key_to_address(handle: &ffi::PrivateKeyHandle) -> ffi::AddressHandle {
+    let storage = ensure_private_key_storage();
+    let keys = storage.lock().unwrap();
+    
+    if let Some(key) = keys.get(&handle.id) {
+        let address = Address::<CurrentNetwork>::try_from(key).unwrap();
+        let id = get_next_id();
+        let addr_storage = ensure_address_storage();
+        let mut addresses = addr_storage.lock().unwrap();
+        addresses.insert(id, address);
+        ffi::AddressHandle { id }
+    } else {
+        ffi::AddressHandle { id: 0 } // Invalid handle
     }
 }
 
-#[no_mangle]
-pub extern "C" fn private_key_from_string(private_key_str: *const c_char) -> *mut PrivateKeyHandle {
-    let private_key_string = match c_char_to_rust_string(private_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
-        Ok(private_key) => Box::into_raw(Box::new(PrivateKeyHandle { inner: private_key })),
-        Err(_) => ptr::null_mut(),
+pub fn private_key_to_view_key(handle: &ffi::PrivateKeyHandle) -> ffi::ViewKeyHandle {
+    let storage = ensure_private_key_storage();
+    let keys = storage.lock().unwrap();
+    
+    if let Some(key) = keys.get(&handle.id) {
+        let view_key = ViewKey::<CurrentNetwork>::try_from(key).unwrap();
+        let id = get_next_id();
+        let vk_storage = ensure_view_key_storage();
+        let mut view_keys = vk_storage.lock().unwrap();
+        view_keys.insert(id, view_key);
+        ffi::ViewKeyHandle { id }
+    } else {
+        ffi::ViewKeyHandle { id: 0 } // Invalid handle
     }
 }
 
-#[no_mangle]
-pub extern "C" fn private_key_to_string(handle: *const PrivateKeyHandle) -> *mut c_char {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let private_key = &(*handle).inner;
-        rust_string_to_c_char(private_key.to_string())
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn private_key_to_address(handle: *const PrivateKeyHandle) -> *mut AddressHandle {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let private_key = &(*handle).inner;
-        match AddressNative::try_from(private_key) {
-            Ok(address) => Box::into_raw(Box::new(AddressHandle { inner: address })),
-            Err(_) => ptr::null_mut(),
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn private_key_to_view_key(handle: *const PrivateKeyHandle) -> *mut ViewKeyHandle {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let private_key = &(*handle).inner;
-        match ViewKeyNative::try_from(private_key) {
-            Ok(view_key) => Box::into_raw(Box::new(ViewKeyHandle { inner: view_key })),
-            Err(_) => ptr::null_mut(),
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn private_key_sign(
-    handle: *const PrivateKeyHandle,
-    message: *const u8,
-    message_len: usize,
-    signature_out: *mut *mut SignatureHandle,
-) -> bool {
-    if handle.is_null() || message.is_null() || signature_out.is_null() {
-        return false;
-    }
-
-    unsafe {
-        let private_key = &(*handle).inner;
-        let message_slice = std::slice::from_raw_parts(message, message_len);
-
-        match SignatureNative::sign_bytes(private_key, message_slice, &mut StdRng::from_entropy()) {
+pub fn private_key_sign(handle: &ffi::PrivateKeyHandle, message: Vec<u8>) -> ffi::SignatureResult {
+    let storage = ensure_private_key_storage();
+    let keys = storage.lock().unwrap();
+    
+    if let Some(key) = keys.get(&handle.id) {
+        match key.sign_bytes(&message, &mut rand::thread_rng()) {
             Ok(signature) => {
-                *signature_out = Box::into_raw(Box::new(SignatureHandle { inner: signature }));
-                true
+                let signature_bytes = signature.to_bytes_le().unwrap();
+                signature_success_result(signature_bytes)
             }
+            Err(e) => signature_error_result(format!("Signing failed: {}", e)),
+        }
+    } else {
+        signature_error_result("Invalid private key handle".to_string())
+    }
+}
+
+pub fn validate_private_key(private_key_str: String) -> bool {
+    private_key_str.parse::<PrivateKey<CurrentNetwork>>().is_ok()
+}
+
+pub fn destroy_private_key(handle: &ffi::PrivateKeyHandle) {
+    let storage = ensure_private_key_storage();
+    let mut keys = storage.lock().unwrap();
+    keys.remove(&handle.id);
+}
+
+// Address functions
+pub fn address_from_string(address_str: String) -> ffi::AddressHandle {
+    match address_str.parse::<Address<CurrentNetwork>>() {
+        Ok(address) => {
+            let id = get_next_id();
+            let storage = ensure_address_storage();
+            let mut addresses = storage.lock().unwrap();
+            addresses.insert(id, address);
+            ffi::AddressHandle { id }
+        }
+        Err(_) => ffi::AddressHandle { id: 0 }, // Invalid handle
+    }
+}
+
+pub fn address_to_string(handle: &ffi::AddressHandle) -> ffi::AccountResult {
+    let storage = ensure_address_storage();
+    let addresses = storage.lock().unwrap();
+    
+    if let Some(address) = addresses.get(&handle.id) {
+        success_result(address.to_string())
+    } else {
+        error_result("Invalid address handle".to_string())
+    }
+}
+
+pub fn address_verify(handle: &ffi::AddressHandle, signature_bytes: Vec<u8>, message: Vec<u8>) -> bool {
+    let storage = ensure_address_storage();
+    let addresses = storage.lock().unwrap();
+    
+    if let Some(address) = addresses.get(&handle.id) {
+        match Signature::<CurrentNetwork>::from_bytes_le(&signature_bytes) {
+            Ok(signature) => signature.verify_bytes(address, &message),
             Err(_) => false,
         }
+    } else {
+        false
     }
 }
 
-#[no_mangle]
-pub extern "C" fn private_key_free(handle: *mut PrivateKeyHandle) {
-    if !handle.is_null() {
-        unsafe {
-            let _ = Box::from_raw(handle);
+pub fn validate_address(address_str: String) -> bool {
+    address_str.parse::<Address<CurrentNetwork>>().is_ok()
+}
+
+pub fn destroy_address(handle: &ffi::AddressHandle) {
+    let storage = ensure_address_storage();
+    let mut addresses = storage.lock().unwrap();
+    addresses.remove(&handle.id);
+}
+
+// ViewKey functions
+pub fn view_key_from_string(view_key_str: String) -> ffi::ViewKeyHandle {
+    match view_key_str.parse::<ViewKey<CurrentNetwork>>() {
+        Ok(view_key) => {
+            let id = get_next_id();
+            let storage = ensure_view_key_storage();
+            let mut view_keys = storage.lock().unwrap();
+            view_keys.insert(id, view_key);
+            ffi::ViewKeyHandle { id }
         }
+        Err(_) => ffi::ViewKeyHandle { id: 0 }, // Invalid handle
     }
 }
 
-// Address FFI functions
-#[no_mangle]
-pub extern "C" fn address_from_string(address_str: *const c_char) -> *mut AddressHandle {
-    let address_string = match c_char_to_rust_string(address_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match address_string.parse::<AddressNative<CurrentNetwork>>() {
-        Ok(address) => Box::into_raw(Box::new(AddressHandle { inner: address })),
-        Err(_) => ptr::null_mut(),
+pub fn view_key_to_string(handle: &ffi::ViewKeyHandle) -> ffi::AccountResult {
+    let storage = ensure_view_key_storage();
+    let view_keys = storage.lock().unwrap();
+    
+    if let Some(view_key) = view_keys.get(&handle.id) {
+        success_result(view_key.to_string())
+    } else {
+        error_result("Invalid view key handle".to_string())
     }
 }
 
-#[no_mangle]
-pub extern "C" fn address_to_string(handle: *const AddressHandle) -> *mut c_char {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let address = &(*handle).inner;
-        rust_string_to_c_char(address.to_string())
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn address_verify(
-    handle: *const AddressHandle,
-    signature_handle: *const SignatureHandle,
-    message: *const u8,
-    message_len: usize,
-) -> bool {
-    if handle.is_null() || signature_handle.is_null() || message.is_null() {
-        return false;
-    }
-
-    unsafe {
-        let address = &(*handle).inner;
-        let signature = &(*signature_handle).inner;
-        let message_slice = std::slice::from_raw_parts(message, message_len);
-
-        signature.verify_bytes(address, message_slice)
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn address_free(handle: *mut AddressHandle) {
-    if !handle.is_null() {
-        unsafe {
-            let _ = Box::from_raw(handle);
-        }
-    }
-}
-
-// ViewKey FFI functions
-#[no_mangle]
-pub extern "C" fn view_key_from_string(view_key_str: *const c_char) -> *mut ViewKeyHandle {
-    let view_key_string = match c_char_to_rust_string(view_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match view_key_string.parse::<ViewKeyNative<CurrentNetwork>>() {
-        Ok(view_key) => Box::into_raw(Box::new(ViewKeyHandle { inner: view_key })),
-        Err(_) => ptr::null_mut(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn view_key_to_string(handle: *const ViewKeyHandle) -> *mut c_char {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let view_key = &(*handle).inner;
-        rust_string_to_c_char(view_key.to_string())
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn view_key_to_address(handle: *const ViewKeyHandle) -> *mut AddressHandle {
-    if handle.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let view_key = &(*handle).inner;
-        match AddressNative::try_from(view_key) {
-            Ok(address) => Box::into_raw(Box::new(AddressHandle { inner: address })),
-            Err(_) => ptr::null_mut(),
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn view_key_free(handle: *mut ViewKeyHandle) {
-    if !handle.is_null() {
-        unsafe {
-            let _ = Box::from_raw(handle);
-        }
-    }
-}
-
-// Signature FFI functions
-#[no_mangle]
-pub extern "C" fn signature_to_bytes(
-    handle: *const SignatureHandle,
-    bytes_out: *mut *mut u8,
-    len_out: *mut usize,
-) -> bool {
-    if handle.is_null() || bytes_out.is_null() || len_out.is_null() {
-        return false;
-    }
-
-    unsafe {
-        let signature = &(*handle).inner;
-        let bytes = signature.to_bytes_le().unwrap_or_default();
-        let len = bytes.len();
-
-        let buffer = libc::malloc(len) as *mut u8;
-        if buffer.is_null() {
-            return false;
-        }
-
-        ptr::copy_nonoverlapping(bytes.as_ptr(), buffer, len);
-        *bytes_out = buffer;
-        *len_out = len;
-        true
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn signature_free(handle: *mut SignatureHandle) {
-    if !handle.is_null() {
-        unsafe {
-            let _ = Box::from_raw(handle);
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn free_bytes(ptr: *mut u8) {
-    if !ptr.is_null() {
-        unsafe {
-            libc::free(ptr as *mut libc::c_void);
-        }
-    }
-}
-
-// Additional signature FFI function needed by C++ code
-#[no_mangle]
-pub extern "C" fn signature_from_bytes(bytes: *const u8, len: usize) -> *mut SignatureHandle {
-    if bytes.is_null() || len == 0 {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        let bytes_slice = std::slice::from_raw_parts(bytes, len);
-        match SignatureNative::<CurrentNetwork>::from_bytes_le(bytes_slice) {
-            Ok(signature) => Box::into_raw(Box::new(SignatureHandle { inner: signature })),
-            Err(_) => ptr::null_mut(),
-        }
-    }
-}
-
-// String-based FFI functions for C++ integration
-#[no_mangle]
-pub extern "C" fn rust_create_private_key() -> *mut c_char {
-    let mut rng = StdRng::from_entropy();
-    match PrivateKeyNative::new(&mut rng) {
-        Ok(private_key) => rust_string_to_c_char(private_key.to_string()),
-        Err(_) => ptr::null_mut(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_validate_private_key(private_key_str: *const c_char) -> bool {
-    let private_key_string = match c_char_to_rust_string(private_key_str) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>().is_ok()
-}
-
-#[no_mangle]
-pub extern "C" fn rust_private_key_to_address(private_key_str: *const c_char) -> *mut c_char {
-    let private_key_string = match c_char_to_rust_string(private_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
-        Ok(pk) => pk,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match AddressNative::try_from(&private_key) {
-        Ok(address) => rust_string_to_c_char(address.to_string()),
-        Err(_) => ptr::null_mut(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_private_key_to_view_key(private_key_str: *const c_char) -> *mut c_char {
-    let private_key_string = match c_char_to_rust_string(private_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
-        Ok(pk) => pk,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match ViewKeyNative::try_from(&private_key) {
-        Ok(view_key) => rust_string_to_c_char(view_key.to_string()),
-        Err(_) => ptr::null_mut(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_private_key_sign(
-    private_key_str: *const c_char,
-    message: *const u8,
-    message_len: usize,
-    signature_len_out: *mut usize,
-) -> *mut u8 {
-    if private_key_str.is_null() || message.is_null() || signature_len_out.is_null() {
-        return ptr::null_mut();
-    }
-
-    let private_key_string = match c_char_to_rust_string(private_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
-        Ok(pk) => pk,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    unsafe {
-        let message_slice = std::slice::from_raw_parts(message, message_len);
-        
-        match SignatureNative::sign_bytes(&private_key, message_slice, &mut StdRng::from_entropy()) {
-            Ok(signature) => {
-                let bytes = signature.to_bytes_le().unwrap_or_default();
-                let len = bytes.len();
-
-                let buffer = libc::malloc(len) as *mut u8;
-                if buffer.is_null() {
-                    return ptr::null_mut();
-                }
-
-                ptr::copy_nonoverlapping(bytes.as_ptr(), buffer, len);
-                *signature_len_out = len;
-                buffer
+pub fn view_key_to_address(handle: &ffi::ViewKeyHandle) -> ffi::AddressHandle {
+    let storage = ensure_view_key_storage();
+    let view_keys = storage.lock().unwrap();
+    
+    if let Some(view_key) = view_keys.get(&handle.id) {
+        match Address::<CurrentNetwork>::try_from(view_key) {
+            Ok(address) => {
+                let id = get_next_id();
+                let addr_storage = ensure_address_storage();
+                let mut addresses = addr_storage.lock().unwrap();
+                addresses.insert(id, address);
+                ffi::AddressHandle { id }
             }
-            Err(_) => ptr::null_mut(),
+            Err(_) => ffi::AddressHandle { id: 0 }, // Invalid handle
         }
+    } else {
+        ffi::AddressHandle { id: 0 } // Invalid handle
     }
 }
 
-#[no_mangle]
-pub extern "C" fn rust_validate_address(address_str: *const c_char) -> bool {
-    let address_string = match c_char_to_rust_string(address_str) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    address_string.parse::<AddressNative<CurrentNetwork>>().is_ok()
+pub fn validate_view_key(view_key_str: String) -> bool {
+    view_key_str.parse::<ViewKey<CurrentNetwork>>().is_ok()
 }
 
-#[no_mangle]
-pub extern "C" fn rust_address_verify(
-    address_str: *const c_char,
-    signature_bytes: *const u8,
-    signature_len: usize,
-    message: *const u8,
-    message_len: usize,
-) -> bool {
-    if address_str.is_null() || signature_bytes.is_null() || message.is_null() {
-        return false;
-    }
-
-    let address_string = match c_char_to_rust_string(address_str) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    let address = match address_string.parse::<AddressNative<CurrentNetwork>>() {
-        Ok(addr) => addr,
-        Err(_) => return false,
-    };
-
-    unsafe {
-        let signature_slice = std::slice::from_raw_parts(signature_bytes, signature_len);
-        let message_slice = std::slice::from_raw_parts(message, message_len);
-
-        let signature = match SignatureNative::<CurrentNetwork>::from_bytes_le(signature_slice) {
-            Ok(sig) => sig,
-            Err(_) => return false,
-        };
-
-        signature.verify_bytes(&address, message_slice)
-    }
+pub fn destroy_view_key(handle: &ffi::ViewKeyHandle) {
+    let storage = ensure_view_key_storage();
+    let mut view_keys = storage.lock().unwrap();
+    view_keys.remove(&handle.id);
 }
 
-#[no_mangle]
-pub extern "C" fn rust_validate_view_key(view_key_str: *const c_char) -> bool {
-    let view_key_string = match c_char_to_rust_string(view_key_str) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    view_key_string.parse::<ViewKeyNative<CurrentNetwork>>().is_ok()
-}
-
-#[no_mangle]
-pub extern "C" fn rust_view_key_to_address(view_key_str: *const c_char) -> *mut c_char {
-    let view_key_string = match c_char_to_rust_string(view_key_str) {
-        Ok(s) => s,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    let view_key = match view_key_string.parse::<ViewKeyNative<CurrentNetwork>>() {
-        Ok(vk) => vk,
-        Err(_) => return ptr::null_mut(),
-    };
-
-    match AddressNative::try_from(&view_key) {
-        Ok(address) => rust_string_to_c_char(address.to_string()),
-        Err(_) => ptr::null_mut(),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_free_string(ptr: *mut c_char) {
-    if !ptr.is_null() {
-        unsafe {
-            let _ = CString::from_raw(ptr);
-        }
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_free_bytes(ptr: *mut u8) {
-    if !ptr.is_null() {
-        unsafe {
-            libc::free(ptr as *mut libc::c_void);
-        }
-    }
+// Signature functions
+pub fn destroy_signature(handle: &ffi::SignatureHandle) {
+    let storage = ensure_signature_storage();
+    let mut signatures = storage.lock().unwrap();
+    signatures.remove(&handle.id);
 }

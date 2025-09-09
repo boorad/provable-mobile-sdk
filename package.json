@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "types": "bun --filter='provable-mobile-sdk' types",
     "specs": "bun --filter='provable-mobile-sdk' specs",
     "format": "biome format .",
     "format:fix": "biome format --write .",
