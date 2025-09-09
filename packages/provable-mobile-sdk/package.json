@@ -12,10 +12,10 @@
   "devDependencies": {
     "@types/bun": "latest",
     "nitro-codegen": "^0.29.3",
-    "react-native": "^0.75.0"
+    "react-native": "0.81.1"
   },
   "peerDependencies": {
     "typescript": "^5",
-    "react-native": ">=0.70.0"
+    "react-native": ">=0.76"
   }
 }
