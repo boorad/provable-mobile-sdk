@@ -327,3 +327,193 @@ pub extern "C" fn signature_from_bytes(bytes: *const u8, len: usize) -> *mut Sig
         }
     }
 }
+
+// String-based FFI functions for C++ integration
+#[no_mangle]
+pub extern "C" fn rust_create_private_key() -> *mut c_char {
+    let mut rng = StdRng::from_entropy();
+    match PrivateKeyNative::new(&mut rng) {
+        Ok(private_key) => rust_string_to_c_char(private_key.to_string()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_validate_private_key(private_key_str: *const c_char) -> bool {
+    let private_key_string = match c_char_to_rust_string(private_key_str) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>().is_ok()
+}
+
+#[no_mangle]
+pub extern "C" fn rust_private_key_to_address(private_key_str: *const c_char) -> *mut c_char {
+    let private_key_string = match c_char_to_rust_string(private_key_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
+        Ok(pk) => pk,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match AddressNative::try_from(&private_key) {
+        Ok(address) => rust_string_to_c_char(address.to_string()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_private_key_to_view_key(private_key_str: *const c_char) -> *mut c_char {
+    let private_key_string = match c_char_to_rust_string(private_key_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
+        Ok(pk) => pk,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match ViewKeyNative::try_from(&private_key) {
+        Ok(view_key) => rust_string_to_c_char(view_key.to_string()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_private_key_sign(
+    private_key_str: *const c_char,
+    message: *const u8,
+    message_len: usize,
+    signature_len_out: *mut usize,
+) -> *mut u8 {
+    if private_key_str.is_null() || message.is_null() || signature_len_out.is_null() {
+        return ptr::null_mut();
+    }
+
+    let private_key_string = match c_char_to_rust_string(private_key_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let private_key = match private_key_string.parse::<PrivateKeyNative<CurrentNetwork>>() {
+        Ok(pk) => pk,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    unsafe {
+        let message_slice = std::slice::from_raw_parts(message, message_len);
+        
+        match SignatureNative::sign_bytes(&private_key, message_slice, &mut StdRng::from_entropy()) {
+            Ok(signature) => {
+                let bytes = signature.to_bytes_le().unwrap_or_default();
+                let len = bytes.len();
+
+                let buffer = libc::malloc(len) as *mut u8;
+                if buffer.is_null() {
+                    return ptr::null_mut();
+                }
+
+                ptr::copy_nonoverlapping(bytes.as_ptr(), buffer, len);
+                *signature_len_out = len;
+                buffer
+            }
+            Err(_) => ptr::null_mut(),
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_validate_address(address_str: *const c_char) -> bool {
+    let address_string = match c_char_to_rust_string(address_str) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    address_string.parse::<AddressNative<CurrentNetwork>>().is_ok()
+}
+
+#[no_mangle]
+pub extern "C" fn rust_address_verify(
+    address_str: *const c_char,
+    signature_bytes: *const u8,
+    signature_len: usize,
+    message: *const u8,
+    message_len: usize,
+) -> bool {
+    if address_str.is_null() || signature_bytes.is_null() || message.is_null() {
+        return false;
+    }
+
+    let address_string = match c_char_to_rust_string(address_str) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    let address = match address_string.parse::<AddressNative<CurrentNetwork>>() {
+        Ok(addr) => addr,
+        Err(_) => return false,
+    };
+
+    unsafe {
+        let signature_slice = std::slice::from_raw_parts(signature_bytes, signature_len);
+        let message_slice = std::slice::from_raw_parts(message, message_len);
+
+        let signature = match SignatureNative::<CurrentNetwork>::from_bytes_le(signature_slice) {
+            Ok(sig) => sig,
+            Err(_) => return false,
+        };
+
+        signature.verify_bytes(&address, message_slice)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_validate_view_key(view_key_str: *const c_char) -> bool {
+    let view_key_string = match c_char_to_rust_string(view_key_str) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    view_key_string.parse::<ViewKeyNative<CurrentNetwork>>().is_ok()
+}
+
+#[no_mangle]
+pub extern "C" fn rust_view_key_to_address(view_key_str: *const c_char) -> *mut c_char {
+    let view_key_string = match c_char_to_rust_string(view_key_str) {
+        Ok(s) => s,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    let view_key = match view_key_string.parse::<ViewKeyNative<CurrentNetwork>>() {
+        Ok(vk) => vk,
+        Err(_) => return ptr::null_mut(),
+    };
+
+    match AddressNative::try_from(&view_key) {
+        Ok(address) => rust_string_to_c_char(address.to_string()),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_free_string(ptr: *mut c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            let _ = CString::from_raw(ptr);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_free_bytes(ptr: *mut u8) {
+    if !ptr.is_null() {
+        unsafe {
+            libc::free(ptr as *mut libc::c_void);
+        }
+    }
+}

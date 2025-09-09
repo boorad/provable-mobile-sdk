@@ -1,6 +1,7 @@
 import type { HybridObject } from "react-native-nitro-modules";
 
-export interface PrivateKey extends HybridObject<{ ios: "c++"; android: "c++" }> {
+// Value objects - plain interfaces for efficient struct conversion
+export interface PrivateKey {
   // Get a string representation of the private key
   toString(): string;
 
@@ -14,7 +15,7 @@ export interface PrivateKey extends HybridObject<{ ios: "c++"; android: "c++" }>
   sign(message: ArrayBuffer): ArrayBuffer;
 }
 
-export interface Address extends HybridObject<{ ios: "c++"; android: "c++" }> {
+export interface Address {
   // Get a string representation of the address
   toString(): string;
 
@@ -22,7 +23,7 @@ export interface Address extends HybridObject<{ ios: "c++"; android: "c++" }> {
   verify(signature: ArrayBuffer, message: ArrayBuffer): boolean;
 }
 
-export interface ViewKey extends HybridObject<{ ios: "c++"; android: "c++" }> {
+export interface ViewKey {
   // Get a string representation of the view key
   toString(): string;
 
@@ -30,8 +31,8 @@ export interface ViewKey extends HybridObject<{ ios: "c++"; android: "c++" }> {
   toAddress(): Address;
 }
 
-// Factory interface for creating account objects
-export interface AccountFactory extends HybridObject<{ ios: "c++"; android: "c++" }> {
+// Account utilities - static methods for creating account objects
+export interface Account extends HybridObject<{ ios: "c++"; android: "c++" }> {
   // Generate a new private key using a cryptographically secure random number generator
   createPrivateKey(): PrivateKey;
 
@@ -43,4 +44,13 @@ export interface AccountFactory extends HybridObject<{ ios: "c++"; android: "c++
 
   // Get a view key from a string representation
   viewKeyFromString(viewKey: string): ViewKey;
+
+  // Get an address from a private key
+  addressFromPrivateKey(privateKey: PrivateKey): Address;
+
+  // Get a view key from a private key
+  viewKeyFromPrivateKey(privateKey: PrivateKey): ViewKey;
+
+  // Get an address from a view key
+  addressFromViewKey(viewKey: ViewKey): Address;
 }

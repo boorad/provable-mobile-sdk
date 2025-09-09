@@ -37,10 +37,7 @@ include_directories(
 # Source files
 add_library(ProvableMobileSdk STATIC
   android/src/main/cpp/cpp-adapter.cpp
-  src/cpp/HybridAccountFactory.cpp
-  src/cpp/HybridAddress.cpp
-  src/cpp/HybridPrivateKey.cpp
-  src/cpp/HybridViewKey.cpp
+  src/cpp/account/HybridAccount.cpp
 )
 EOF
 

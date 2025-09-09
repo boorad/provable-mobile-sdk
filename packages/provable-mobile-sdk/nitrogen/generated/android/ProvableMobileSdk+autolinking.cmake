@@ -27,10 +27,7 @@ target_sources(
   # Autolinking Setup
   ../nitrogen/generated/android/ProvableMobileSdkOnLoad.cpp
   # Shared Nitrogen C++ sources
-  ../nitrogen/generated/shared/c++/HybridPrivateKeySpec.cpp
-  ../nitrogen/generated/shared/c++/HybridAddressSpec.cpp
-  ../nitrogen/generated/shared/c++/HybridViewKeySpec.cpp
-  ../nitrogen/generated/shared/c++/HybridAccountFactorySpec.cpp
+  ../nitrogen/generated/shared/c++/HybridAccountSpec.cpp
   # Android-specific Nitrogen C++ sources
   
 )
