@@ -7,7 +7,7 @@ namespace margelo::nitro::provable {
 
 class HybridAccount : public HybridAccountSpec {
  public:
-  explicit HybridAccount() : HybridAccountSpec() {}
+  explicit HybridAccount() : HybridObject(TAG) {}
 
   // Account creation methods
   PrivateKey createPrivateKey() override;
