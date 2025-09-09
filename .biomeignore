@@ -1,0 +1,11 @@
+**/target/**
+**/node_modules/**
+**/dist/**
+**/build/**
+**/generated/**
+**/*.d.ts
+**/android/**
+**/ios/**
+**/CMakeFiles/**
+**/.fingerprint/**
+bun.lock

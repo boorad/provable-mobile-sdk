@@ -1,0 +1,17 @@
+{
+  "cxxNamespace": ["provable"],
+  "ios": {
+    "iosModuleName": "ProvableMobileSdk"
+  },
+  "android": {
+    "androidNamespace": ["provable"],
+    "androidCxxLibName": "ProvableMobileSdk"
+  },
+  "autolinking": {
+    "PrivateKey": { "cpp": "HybridPrivateKey" },
+    "Address": { "cpp": "HybridAddress" },
+    "ViewKey": { "cpp": "HybridViewKey" },
+    "AccountFactory": { "cpp": "HybridAccountFactory" }
+  },
+  "ignorePaths": ["node_modules", "lib"]
+}

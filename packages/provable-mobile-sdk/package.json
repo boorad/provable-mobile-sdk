@@ -1,0 +1,19 @@
+{
+  "name": "provable-mobile-sdk",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "specs": "nitro-codegen"
+  },
+  "dependencies": {
+    "react-native-nitro-modules": "^0.29.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "nitro-codegen": "^0.29.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
