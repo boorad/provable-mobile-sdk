@@ -30,6 +30,10 @@ const config = {
     nodeModulesPaths,
     // Enable source extensions for TypeScript and modern JS
     sourceExts: ['js', 'json', 'ts', 'tsx', 'jsx'],
+    // Add alias configuration for @ path
+    alias: {
+      '@': path.resolve(projectRoot, 'src'),
+    },
   },
 };
 

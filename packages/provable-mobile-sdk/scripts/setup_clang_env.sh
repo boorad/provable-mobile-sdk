@@ -25,7 +25,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Include directories
 include_directories(
   "android/src/main/cpp"
-  "src/cpp/"
+  "src/cpp"
+  "src/cpp/account"
   "build/includes"
   "build/includes/rust"
   "nitrogen/generated/ios"

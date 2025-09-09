@@ -1351,6 +1351,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-vector-icons-material-design-icons (12.3.0)
   - React-NativeModulesApple (0.81.1):
     - hermes-engine
     - React-callinvoker
@@ -1701,6 +1702,53 @@ PODS:
     - React-utils (= 0.81.1)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.81.1)
+  - RNScreens (4.16.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-RCTImage
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNScreens/common (= 4.16.0)
+    - Yoga
+  - RNScreens/common (4.16.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-RCTImage
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1741,6 +1789,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
+  - "react-native-vector-icons-material-design-icons (from `../../../node_modules/@react-native-vector-icons/material-design-icons`)"
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-oscompat (from `../../../node_modules/react-native/ReactCommon/oscompat`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -1772,6 +1821,7 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
+  - RNScreens (from `../../../node_modules/react-native-screens`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 EXTERNAL SOURCES:
@@ -1848,6 +1898,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-safe-area-context:
     :path: "../../../node_modules/react-native-safe-area-context"
+  react-native-vector-icons-material-design-icons:
+    :path: "../../../node_modules/@react-native-vector-icons/material-design-icons"
   React-NativeModulesApple:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-oscompat:
@@ -1910,6 +1962,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+  RNScreens:
+    :path: "../../../node_modules/react-native-screens"
   Yoga:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
@@ -1950,6 +2004,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: bc36232966c55d5b1cbef3b84cb97c4317fa4403
   React-microtasksnativemodule: cbabfedcf6c2984e59d07f9ab553f3d277599b1b
   react-native-safe-area-context: 42a1b4f8774b577d03b53de7326e3d5757fe9513
+  react-native-vector-icons-material-design-icons: c502df5b988ce85d6c7d2b7ee909818315760b82
   React-NativeModulesApple: 055e2d1417c663e7a26fc0847609f503e626e9e1
   React-oscompat: 8f2893713639e12c7558750a9f7de3f08ac255b0
   React-perflogger: 34b632f94b15e1068f7997e5a68b40a55162ad13
@@ -1981,8 +2036,9 @@ SPEC CHECKSUMS:
   ReactCodegen: 71d20b7953d19231d821c81b3791ee5e2db149cd
   ReactCommon: 3579ef7cd884fbb5218bed929f25b7b212299700
   ReactNativeDependencies: 9444683ddc7eaa98d2289224ce730a7632b705ff
+  RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
   Yoga: 18b87f28df0aee34fa7370518a35aa8107ba47b9
 
-PODFILE CHECKSUM: 313d3b3d5342a57b83841aadd332374d6043a579
+PODFILE CHECKSUM: 3a95e973defd89327edc980e39d70e8772f2cecc
 
 COCOAPODS: 1.15.2

@@ -33,7 +33,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
+# VSCode/Windsurf
 .windsurf/rules/local.md
+.vscode/mcp.json
 
 # builds
 build/
