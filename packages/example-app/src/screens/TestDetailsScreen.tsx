@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import BouncyCheckbox from "react-native-bouncy-checkbox";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { CorrectResultItem } from "@/components/CorrectResultItem";
 import { IncorrectResultItem } from "@/components/IncorrectResultItem";
 import { Suite } from "@/components/Suite";
+import { useThemeColors } from "@/hooks/useThemeColors";
 import { colors } from "@/styles/colors";
 import type { TestResult } from "@/types/Results";
 
@@ -18,11 +18,14 @@ export const TestDetailsScreen = ({ route }) => {
   const { results, suiteName }: RouteParams = route.params;
   const [showFailed, setShowFailed] = useState<boolean>(true);
   const [showPassed, setShowPassed] = useState<boolean>(true);
+  const themeColors = useThemeColors();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View>
-        <Text style={styles.title}>Test Results for '{suiteName}' Suite</Text>
+        <Text style={[styles.title, { color: themeColors.text }]}>
+          Test Results for '{suiteName}' Suite
+        </Text>
       </View>
       <View style={styles.showMenu}>
         <View style={styles.showMenuItem}>
@@ -33,7 +36,7 @@ export const TestDetailsScreen = ({ route }) => {
             fillColor="red"
             style={styles.checkbox}
           />
-          <Text style={styles.showMenuLabel}>Show Failed</Text>
+          <Text style={[styles.showMenuLabel, { color: themeColors.text }]}>Show Failed</Text>
         </View>
         <View style={styles.showMenuItem}>
           <BouncyCheckbox
@@ -43,14 +46,14 @@ export const TestDetailsScreen = ({ route }) => {
             fillColor={colors.green}
             style={styles.checkbox}
           />
-          <Text style={styles.showMenuLabel}>Show Passed</Text>
+          <Text style={[styles.showMenuLabel, { color: themeColors.text }]}>Show Passed</Text>
         </View>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {results.map((it, index: number) => {
           // Create a stable key using description, type, and index as fallback
           const stableKey = `${it.type}-${it.description}-${index}`;
-          
+
           let InnerElement = <View key={stableKey} />;
           if (showPassed && it.type === "correct") {
             InnerElement = <CorrectResultItem key={stableKey} description={it.description} />;
@@ -58,7 +61,11 @@ export const TestDetailsScreen = ({ route }) => {
           if (showFailed && it.type === "incorrect") {
             const errorMsg = it.errorMsg || ""; // Trick TS - How to do it as it should be? :)
             InnerElement = (
-              <IncorrectResultItem key={stableKey} description={it.description} errorMsg={errorMsg} />
+              <IncorrectResultItem
+                key={stableKey}
+                description={it.description}
+                errorMsg={errorMsg}
+              />
             );
           }
           if (it.type === "grouping") {
@@ -67,14 +74,13 @@ export const TestDetailsScreen = ({ route }) => {
           return InnerElement;
         })}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 30,
   },
   title: {
     textAlign: "center",

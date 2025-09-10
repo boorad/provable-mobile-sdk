@@ -1,7 +1,7 @@
 import type React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { calculateTimes, formatNumber } from "@/benchmarks/utils";
-import { colors } from "@/styles/colors";
+import { useThemeColors } from "@/hooks/useThemeColors";
 import type { BenchmarkResult } from "@/types/benchmarks";
 
 type BenchmarkResultItemProps = {
@@ -11,12 +11,14 @@ type BenchmarkResultItemProps = {
 type Key = "throughput" | "latency";
 
 export const BenchmarkResultItemHeader: React.FC = () => {
+  const colors = useThemeColors();
+  
   return (
     <View style={styles.itemContainer}>
-      <Text style={[styles.text, styles.description]}>&nbsp;</Text>
-      <Text style={styles.label}>times</Text>
-      <Text style={styles.label}>rnqc</Text>
-      <Text style={styles.label}>challenger</Text>
+      <Text style={[styles.text, styles.description, { color: colors.text }]}>&nbsp;</Text>
+      <Text style={[styles.label, { color: colors.text }]}>times</Text>
+      <Text style={[styles.label, { color: colors.text }]}>rnqc</Text>
+      <Text style={[styles.label, { color: colors.text }]}>challenger</Text>
     </View>
   );
 };
@@ -24,6 +26,7 @@ export const BenchmarkResultItemHeader: React.FC = () => {
 export const BenchmarkResultItem: React.FC<BenchmarkResultItemProps> = ({
   result,
 }: BenchmarkResultItemProps) => {
+  const colors = useThemeColors();
   const rows = ["throughput", "latency"].map((key) => {
     const us = result.us![key as Key].mean;
     const them = result.them![key as Key].mean;
@@ -32,18 +35,20 @@ export const BenchmarkResultItem: React.FC<BenchmarkResultItemProps> = ({
     const times = calculateTimes(us, them);
     const emoji = comparison ? "🐇" : "🐢";
     const timesType = comparison ? "faster" : "slower";
-    const timesStyle = timesType === "faster" ? styles.faster : styles.slower;
+    const timesStyle = timesType === "faster" ? 
+      [styles.faster, { color: colors.green }] : 
+      [styles.slower, { color: colors.red }];
 
     return (
       <View key={key}>
         <View style={styles.itemContainer}>
-          <Text style={styles.text}>{emoji}</Text>
-          <Text style={[styles.text, styles.description]}>
+          <Text style={[styles.text, { color: colors.text }]}>{emoji}</Text>
+          <Text style={[styles.text, styles.description, { color: colors.text }]}>
             {key} {key === "throughput" ? "(ops/s)" : "(ms)"}
           </Text>
           <Text style={[styles.value, timesStyle]}>{formatNumber(times, 2, "x")}</Text>
-          <Text style={styles.value}>{formatNumber(us, places, "")}</Text>
-          <Text style={styles.value}>{formatNumber(them, places, "")}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{formatNumber(us, places, "")}</Text>
+          <Text style={[styles.value, { color: colors.text }]}>{formatNumber(them, places, "")}</Text>
         </View>
       </View>
     );
@@ -52,17 +57,17 @@ export const BenchmarkResultItem: React.FC<BenchmarkResultItemProps> = ({
   return (
     <View>
       <View style={styles.subContainer}>
-        <Text style={[styles.sub, styles.benchName]}>{result.benchName}</Text>
+        <Text style={[styles.sub, styles.benchName, { color: colors.text }]}>{result.benchName}</Text>
       </View>
       {rows}
       <View style={styles.subContainer}>
-        <Text style={[styles.sub, styles.subLabel]}>challenger</Text>
-        <Text style={[styles.sub, styles.subValue]}>{result.challenger}</Text>
+        <Text style={[styles.sub, styles.subLabel, { color: colors.text }]}>challenger</Text>
+        <Text style={[styles.sub, styles.subValue, { color: colors.text }]}>{result.challenger}</Text>
       </View>
       {result.notes !== "" && (
         <View style={styles.subContainer}>
-          <Text style={[styles.sub, styles.subLabel]}>notes</Text>
-          <Text style={[styles.sub, styles.subValue]}>{result.notes}</Text>
+          <Text style={[styles.sub, styles.subLabel, { color: colors.text }]}>notes</Text>
+          <Text style={[styles.sub, styles.subValue, { color: colors.text }]}>{result.notes}</Text>
         </View>
       )}
     </View>
@@ -103,11 +108,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   faster: {
-    color: colors.green,
     fontWeight: "bold",
   },
   slower: {
-    color: colors.red,
     fontWeight: "bold",
   },
   sub: {

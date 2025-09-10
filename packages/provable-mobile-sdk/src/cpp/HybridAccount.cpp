@@ -152,28 +152,24 @@ PrivateKey HybridAccount::createPrivateKeyStruct(const std::string& privateKeySt
   return PrivateKey(
       // toString function
       [privateKeyString]() -> std::shared_ptr<Promise<std::string>> {
-        auto promise = Promise<std::string>::resolved(std::string(privateKeyString));
-        return promise;
+        return Promise<std::string>::resolved(std::string(privateKeyString));
       },
       // toAddress function
       [this, privateKeyString]() -> std::shared_ptr<Promise<Address>> {
         std::string addressString = rustPrivateKeyToAddress(privateKeyString);
         Address address = createAddressStruct(addressString);
-        auto promise = Promise<Address>::resolved(std::move(address));
-        return promise;
+        return Promise<Address>::resolved(std::move(address));
       },
       // toViewKey function
       [this, privateKeyString]() -> std::shared_ptr<Promise<ViewKey>> {
         std::string viewKeyString = rustPrivateKeyToViewKey(privateKeyString);
         ViewKey viewKey = createViewKeyStruct(viewKeyString);
-        auto promise = Promise<ViewKey>::resolved(std::move(viewKey));
-        return promise;
+        return Promise<ViewKey>::resolved(std::move(viewKey));
       },
       // sign function
       [this, privateKeyString](const std::shared_ptr<ArrayBuffer>& message) -> std::shared_ptr<Promise<std::shared_ptr<ArrayBuffer>>> {
         auto signature = rustPrivateKeySign(privateKeyString, message->data(), message->size());
-        auto promise = Promise<std::shared_ptr<ArrayBuffer>>::resolved(std::move(signature));
-        return promise;
+        return Promise<std::shared_ptr<ArrayBuffer>>::resolved(std::move(signature));
       });
 }
 
@@ -182,7 +178,7 @@ Address HybridAccount::createAddressStruct(const std::string& addressString) {
   return Address(
       // toString function
       [addressString]() -> std::shared_ptr<Promise<std::string>> {
-        return Promise<std::string>::async([addressString]() { return addressString; });
+        return Promise<std::string>::resolved(std::string(addressString));
       },
       // verify function
       [this, addressString](const std::shared_ptr<ArrayBuffer>& signature,
@@ -201,14 +197,13 @@ ViewKey HybridAccount::createViewKeyStruct(const std::string& viewKeyString) {
   return ViewKey(
       // toString function
       [viewKeyString]() -> std::shared_ptr<Promise<std::string>> {
-        return Promise<std::string>::async([viewKeyString]() { return viewKeyString; });
+        return Promise<std::string>::resolved(std::string(viewKeyString));
       },
       // toAddress function
       [this, viewKeyString]() -> std::shared_ptr<Promise<Address>> {
-        return Promise<Address>::async([this, viewKeyString]() {
-          std::string addressString = rustViewKeyToAddress(viewKeyString);
-          return createAddressStruct(addressString);
-        });
+        std::string addressString = rustViewKeyToAddress(viewKeyString);
+        Address address = createAddressStruct(addressString);
+        return Promise<Address>::resolved(std::move(address));
       });
 }
 

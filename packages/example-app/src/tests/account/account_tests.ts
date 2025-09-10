@@ -18,7 +18,7 @@ const KNOWN_PRIVATE_KEY = 'APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmc
 const KNOWN_ADDRESS = 'aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px';
 const KNOWN_VIEW_KEY = 'AViewKey1mSnpFFC8Mj4fXbK5YiWgZ3mjiV8CxA79bYNa8ymUpTrw';
 
-test(SUITE, 'Account module instantiation', async () => {
+test(SUITE, 'Account module instantiation', () => {
   const account = getAccount();
   expect(account).to.not.be.null;
   expect(account).to.not.be.undefined;

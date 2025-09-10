@@ -1,6 +1,6 @@
 import type React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "@/styles/colors";
+import { useThemeColors } from "@/hooks/useThemeColors";
 
 type IncorrectResultItemProps = {
   description: string;
@@ -13,11 +13,12 @@ export const IncorrectResultItem: React.FC<IncorrectResultItemProps> = ({
 }: IncorrectResultItemProps) => {
   const emoji = "❌";
   const title = `${emoji} [${description}]`;
+  const colors = useThemeColors();
 
   return (
     <View style={styles.itemContainer}>
-      <Text style={styles.text}>{title}</Text>
-      <Text style={styles.error}>{errorMsg}</Text>
+      <Text style={[styles.text, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.error, { color: colors.red }]}>{errorMsg}</Text>
     </View>
   );
 };
@@ -35,7 +36,6 @@ const styles = StyleSheet.create({
     paddingRight: 5,
   },
   error: {
-    color: colors.red,
     fontSize: 9,
     paddingRight: 5,
   },
